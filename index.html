@@ -1,0 +1,448 @@
+<!--
+业务痛点：现代人每天要处理大量事务，容易遗忘重要任务。这个轻量级待办应用
+帮助用户快速记录、整理和追踪待办事项，避免遗漏，同时通过完成标记获得成就感，
+提升工作和生活效率。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办事项</title>
+    <!-- 引入 Vue 3 框架 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        /* 重置默认样式，去掉浏览器差异 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* 页面背景，淡灰蓝色调 */
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        /* 主容器，卡片样式 */
+        #app {
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* 标题卡片 */
+        .header-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        /* 主标题 */
+        .header-card h1 {
+            color:#2d3748;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        /* 副标题提示 */
+        .header-card p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        /* 输入区域卡片 */
+        .input-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            margin-bottom: 24px;
+        }
+
+        /* 输入框容器，方便布局 */
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* 文本输入框样式 */
+        .task-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        /* 输入框聚焦时的样式 */
+        .task-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        /* 添加按钮样式 */
+        .add-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        /* 添加按钮悬停效果 */
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        /* 按钮点击效果 */
+        .add-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 任务列表容器 */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* 单个任务卡片 */
+        .task-item {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 18px 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: slideIn 0.3s ease;
+        }
+
+        /* 任务卡片悬停效果 */
+        .task-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.12);
+        }
+
+        /* 新任务滑入动画 */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 自定义复选框容器 */
+        .checkbox-wrapper {
+            position: relative;
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        /* 隐藏原生复选框 */
+        .checkbox-wrapper input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        /* 复选框自定义样式 */
+        .checkmark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 22px;
+            height: 22px;
+            border: 2px solid #cbd5e0;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        /* 复选框选中时的样式 */
+        .checkbox-wrapper input:checked + .checkmark {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+
+        /* 复选框选中后的勾 */
+        .checkbox-wrapper input:checked + .checkmark::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 6px;
+            height: 12px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        /* 任务文字区域 */
+        .task-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* 任务标题文字 */
+        .task-title {
+            font-size: 16px;
+            color: #2d3748;
+            word-break: break-word;
+            transition: color 0.3s;
+        }
+
+        /* 已完成任务文字样式（删除线） */
+        .task-title.completed {
+            color: #a0aec0;
+            text-decoration: line-through;
+        }
+
+        /* 任务创建时间 */
+        .task-time {
+            font-size: 12px;
+            color: #a0aec0;
+            margin-top: 4px;
+        }
+
+        /* 删除按钮样式 */
+        .delete-btn {
+            padding: 8px 16px;
+            background: #fff5f5;
+            color: #fc8181;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        /* 删除按钮悬停效果 */
+        .delete-btn:hover {
+            background: #fc8181;
+            color: #ffffff;
+            border-color: #fc8181;
+        }
+
+        /* 空状态提示 */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+            font-size: 16px;
+        }
+
+        /* 空状态图标 */
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        /* 加载状态提示 */
+        .loading-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 标题区域 -->
+        <div class="header-card">
+            <h1>待办事项</h1>
+            <p>记录今天要完成的任务</p>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-card">
+            <div class="input-wrapper">
+                <!-- 输入框，绑定回车事件 -->
+                <input
+                    v-model="newTask"
+                    @keyup.enter="addTask"
+                    type="text"
+                    class="task-input"
+                    placeholder="输入新任务..."
+                    maxlength="100"
+                >
+                <!-- 添加按钮 -->
+                <button @click="addTask" class="add-btn">添加</button>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-state">
+            加载中...
+        </div>
+
+        <!-- 任务列表 -->
+        <div v-else class="task-list">
+            <!-- 遍历所有任务 -->
+            <div v-for="task in tasks" :key="task.id" class="task-item">
+                <!-- 复选框，用于标记完成 -->
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" v-model="task.completed" @change="toggleComplete(task)">
+                    <span class="checkmark"></span>
+                </label>
+
+                <!-- 任务内容 -->
+                <div class="task-content">
+                    <!-- 任务标题，根据完成状态添加删除线 -->
+                    <div class="task-title" :class="{ completed: task.completed }">
+                        {{ task.text }}
+                    </div>
+                    <!-- 创建时间 -->
+                    <div class="task-time">创建于 {{ task.time }}</div>
+                </div>
+
+                <!-- 删除按钮 -->
+                <button @click="deleteTask(task.id)" class="delete-btn">删除</button>
+            </div>
+
+            <!-- 空状态提示，当没有任务时显示 -->
+            <div v-if="tasks.length === 0" class="empty-state">
+                <div class="empty-icon">📝</div>
+                <p>暂无任务，添加一个吧</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 创建 Vue 应用
+        const { createApp } = Vue;
+
+        // json-server 后端地址
+        const API_BASE = 'http://localhost:3000';
+
+        createApp({
+            data() {
+                return {
+                    newTask: '',          // 新任务输入框绑定的值
+                    tasks: [],            // 任务列表数组
+                    loading: true         // 加载状态标志
+                };
+            },
+            // 页面加载时自动获取数据
+            mounted() {
+                this.fetchTasks();
+            },
+            methods: {
+                // 获取当前时间，格式：时:分:秒
+                getCurrentTime() {
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    return `${hours}:${minutes}:${seconds}`;
+                },
+
+                // 从后端获取所有任务列表
+                async fetchTasks() {
+                    try {
+                        // GET 请求：从 json-server 获取所有待办任务
+                        const response = await fetch(`${API_BASE}/todos`);
+                        const data = await response.json();
+                        // 更新任务列表
+                        this.tasks = data;
+                    } catch (error) {
+                        console.error('获取任务失败:', error);
+                    } finally {
+                        // 隐藏加载状态
+                        this.loading = false;
+                    }
+                },
+
+                // 添加新任务
+                async addTask() {
+                    // 去除首尾空格
+                    const text = this.newTask.trim();
+                    // 空内容不添加
+                    if (!text) return;
+
+                    try {
+                        // POST 请求：发送新任务到后端
+                        // 请求体包含：text(任务内容)、completed(默认未完成)、time(创建时间)
+                        await fetch(`${API_BASE}/todos`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: text,
+                                completed: false,
+                                time: this.getCurrentTime()
+                            })
+                        });
+                        // 添加成功后重新获取列表以刷新页面
+                        await this.fetchTasks();
+                    } catch (error) {
+                        console.error('添加任务失败:', error);
+                    }
+
+                    // 清空输入框
+                    this.newTask = '';
+                },
+
+                // 删除任务
+                async deleteTask(id) {
+                    try {
+                        // DELETE 请求：根据 ID 删除指定任务
+                        await fetch(`${API_BASE}/todos/${id}`, {
+                            method: 'DELETE'
+                        });
+                        // 删除成功后重新获取列表以刷新页面
+                        await this.fetchTasks();
+                    } catch (error) {
+                        console.error('删除任务失败:', error);
+                    }
+                },
+
+                // 切换任务完成状态
+                async toggleComplete(task) {
+                    try {
+                        // PATCH 请求：只更新任务的 completed 字段
+                        await fetch(`${API_BASE}/todos/${task.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                completed: task.completed
+                            })
+                        });
+                        // 更新成功后重新获取列表以刷新页面
+                        await this.fetchTasks();
+                    } catch (error) {
+                        console.error('更新任务状态失败:', error);
+                    }
+                }
+            }
+        }).mount('#app'); // 挂载到 #app 元素
+    </script>
+</body>
+</html>
